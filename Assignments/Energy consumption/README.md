@@ -1,6 +1,6 @@
 # EV Energy Consumption Prediction
 
-**Subject:** Electric Vehicle Technology & AI/ML
+**Subject:** Automotive Intelligence
 **Student:** Gosavi Rajat Sanjay | M.Tech Automotive Technology, COEP
 
 ---
