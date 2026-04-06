@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Driver Monitoring System – Code Explainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  /* ─── RESET & BASE ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background: #0a0e1a; }
+
+  /* ─── SLIDE WRAPPER ─── */
+  #deck { width: 100vw; height: 100vh; position: relative; }
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: 48px 64px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateY(30px);
+  }
+  .slide.active { opacity: 1; pointer-events: all; transform: translateY(0); }
+
+  /* ─── BACKGROUNDS PER SLIDE ─── */
+  .bg-title    { background: radial-gradient(ellipse at 30% 50%, #1a1040 0%, #0a0e1a 70%); }
+  .bg-overview { background: radial-gradient(ellipse at 70% 30%, #0d2340 0%, #0a0e1a 70%); }
+  .bg-libs     { background: radial-gradient(ellipse at 20% 60%, #0d1f30 0%, #0a0e1a 70%); }
+  .bg-mesh     { background: radial-gradient(ellipse at 60% 40%, #1a2810 0%, #0a0e1a 70%); }
+  .bg-ear      { background: radial-gradient(ellipse at 40% 60%, #1f1030 0%, #0a0e1a 70%); }
+  .bg-mar      { background: radial-gradient(ellipse at 70% 50%, #201010 0%, #0a0e1a 70%); }
+  .bg-thresh   { background: radial-gradient(ellipse at 30% 40%, #102030 0%, #0a0e1a 70%); }
+  .bg-loop     { background: radial-gradient(ellipse at 60% 60%, #1a1a10 0%, #0a0e1a 70%); }
+  .bg-alert    { background: radial-gradient(ellipse at 50% 30%, #200d0d 0%, #0a0e1a 70%); }
+  .bg-flow     { background: radial-gradient(ellipse at 40% 70%, #0d1a30 0%, #0a0e1a 70%); }
+  .bg-run      { background: radial-gradient(ellipse at 60% 40%, #0d2018 0%, #0a0e1a 70%); }
+
+  /* ─── TYPOGRAPHY ─── */
+  h1 { font-size: clamp(2rem, 5vw, 3.8rem); font-weight: 900; letter-spacing: -1px; text-align: center; line-height: 1.1; }
+  h2 { font-size: clamp(1.4rem, 3vw, 2.2rem); font-weight: 700; margin-bottom: 28px; }
+  h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
+  p, li { font-size: clamp(0.9rem, 1.6vw, 1.1rem); line-height: 1.7; color: #c8d0e0; }
+  .subtitle { font-size: clamp(1rem, 2vw, 1.4rem); color: #8090b0; margin-top: 12px; text-align: center; }
+  .badge {
+    display: inline-block; padding: 4px 14px; border-radius: 20px;
+    font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* ─── GRADIENT TEXT ─── */
+  .grad-blue  { background: linear-gradient(135deg, #60a0ff, #a060ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .grad-green { background: linear-gradient(135deg, #40e080, #00c8a0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .grad-red   { background: linear-gradient(135deg, #ff6060, #ff9040); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .grad-gold  { background: linear-gradient(135deg, #ffd060, #ff8040); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .grad-pink  { background: linear-gradient(135deg, #ff60c0, #a060ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+  /* ─── CODE BLOCKS ─── */
+  pre {
+    background: #0d1117; border: 1px solid #30404f; border-radius: 12px;
+    padding: 20px 24px; overflow-x: auto;
+    font-family: 'Fira Code', monospace; font-size: clamp(0.72rem, 1.3vw, 0.92rem);
+    line-height: 1.7; color: #e0e8f0; width: 100%;
+    box-shadow: 0 0 40px rgba(0,100,255,0.08);
+  }
+  .kw  { color: #c792ea; }  /* keyword   */
+  .fn  { color: #82aaff; }  /* function  */
+  .str { color: #c3e88d; }  /* string    */
+  .num { color: #f78c6c; }  /* number    */
+  .cmt { color: #546878; font-style: italic; } /* comment */
+  .var { color: #ffcb6b; }  /* variable  */
+  .op  { color: #89ddff; }  /* operator  */
+
+  /* ─── CARDS ─── */
+  .cards { display: flex; gap: 20px; width: 100%; flex-wrap: wrap; }
+  .card {
+    flex: 1; min-width: 200px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 24px 20px;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+  .card .icon { font-size: 2.2rem; margin-bottom: 12px; }
+  .card h3 { color: #fff; }
+  .card p { font-size: 0.92rem; margin-top: 6px; }
+
+  /* ─── EYE DIAGRAM ─── */
+  .eye-diagram {
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    width: 100%;
+  }
+  .eye-row { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .eye-box {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px; padding: 18px 24px; text-align: center; min-width: 180px;
+  }
+  .eye-box .label { font-size: 0.78rem; color: #8090b0; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .eye-box .value { font-size: 1.8rem; font-weight: 700; }
+
+  /* ─── SVG EYE ─── */
+  .eye-svg-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  
+  /* ─── FORMULA BOX ─── */
+  .formula {
+    background: rgba(96,160,255,0.08); border: 1px solid rgba(96,160,255,0.25);
+    border-radius: 14px; padding: 20px 28px; text-align: center; width: 100%;
+    margin: 12px 0;
+  }
+  .formula .eq { font-family: 'Fira Code', monospace; font-size: clamp(1rem, 2vw, 1.35rem); color: #fff; }
+  .formula .desc { font-size: 0.85rem; color: #8090b0; margin-top: 8px; }
+
+  /* ─── TABLE ─── */
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th { background: rgba(96,160,255,0.15); color: #80c0ff; font-weight: 700;
+       padding: 12px 16px; text-align: left; border-bottom: 1px solid rgba(96,160,255,0.2); }
+  td { padding: 11px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #c0cce0; vertical-align: top; }
+  tr:hover td { background: rgba(255,255,255,0.03); }
+
+  /* ─── FLOW CHART ─── */
+  .flow { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+  .flow-box {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 12px 28px; width: 90%; text-align: center;
+    font-size: 0.95rem; color: #e0e8f8; transition: background 0.3s;
+  }
+  .flow-box:hover { background: rgba(255,255,255,0.1); }
+  .flow-box.green  { border-color: rgba(64,224,128,0.4); color: #80ffb0; }
+  .flow-box.red    { border-color: rgba(255,100,100,0.4); color: #ffaaaa; }
+  .flow-box.orange { border-color: rgba(255,165,64,0.4);  color: #ffd080; }
+  .flow-box.blue   { border-color: rgba(96,160,255,0.4);  color: #a0c8ff; }
+  .flow-arrow { color: #506070; font-size: 1.4rem; line-height: 1; }
+
+  /* ─── ALERT STATE BOXES ─── */
+  .alert-states { display: flex; gap: 16px; width: 100%; flex-wrap: wrap; }
+  .alert-state {
+    flex: 1; min-width: 160px; border-radius: 14px; padding: 20px;
+    text-align: center; border: 2px solid;
+  }
+  .alert-state .state-icon { font-size: 2rem; }
+  .alert-state .state-name { font-weight: 700; font-size: 1.05rem; margin: 8px 0 4px; }
+  .alert-state .state-desc { font-size: 0.82rem; }
+  .state-green  { background: rgba(64,224,128,0.08); border-color: rgba(64,224,128,0.4); }
+  .state-red    { background: rgba(255,80,80,0.08);  border-color: rgba(255,80,80,0.4); }
+  .state-orange { background: rgba(255,165,0,0.08);  border-color: rgba(255,165,0,0.4); }
+  .state-gray   { background: rgba(150,160,180,0.08); border-color: rgba(150,160,180,0.4); }
+
+  /* ─── NAV ─── */
+  #nav {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 20px; z-index: 100;
+    background: rgba(10,14,26,0.85); backdrop-filter: blur(12px);
+    padding: 12px 28px; border-radius: 50px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  #nav button {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: #fff; font-family: 'Inter', sans-serif; font-size: 0.9rem; font-weight: 600;
+    padding: 8px 22px; border-radius: 30px; cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+  #nav button:hover { background: rgba(255,255,255,0.16); transform: scale(1.04); }
+  #nav button:disabled { opacity: 0.3; cursor: default; transform: none; }
+  #slide-counter { color: #6080a0; font-size: 0.85rem; min-width: 60px; text-align: center; }
+
+  /* ─── DOTS ─── */
+  #dots { position: fixed; right: 24px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); cursor: pointer;
+    transition: background 0.3s, transform 0.3s;
+  }
+  .dot.active { background: #60a0ff; transform: scale(1.5); }
+
+  /* ─── SLIDE NUMBER BADGE ─── */
+  .slide-num {
+    position: absolute; top: 24px; right: 36px;
+    font-size: 0.75rem; color: #304050; font-family: 'Fira Code', monospace;
+  }
+
+  /* ─── HIGHLIGHT ANNOTATION ─── */
+  .annotation {
+    background: rgba(255,200,60,0.1); border-left: 3px solid #ffc040;
+    padding: 10px 16px; border-radius: 0 8px 8px 0; margin-top: 10px;
+    font-size: 0.88rem; color: #ffe0a0;
+  }
+
+  /* ─── TWO COLUMNS ─── */
+  .two-col { display: flex; gap: 28px; width: 100%; align-items: flex-start; }
+  .two-col > * { flex: 1; }
+
+  /* ─── FACE MESH ILLUSTRATION ─── */
+  .face-points { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
+  .point-pill {
+    background: rgba(96,160,255,0.1); border: 1px solid rgba(96,160,255,0.25);
+    border-radius: 8px; padding: 8px 10px; text-align: center;
+    font-family: 'Fira Code', monospace; font-size: 0.8rem; color: #80b8ff;
+  }
+
+  /* ─── KEYBOARD ─── */
+  .kbd {
+    display: inline-block; background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2); border-bottom: 3px solid rgba(255,255,255,0.15);
+    border-radius: 6px; padding: 2px 10px; font-family: 'Fira Code', monospace;
+    font-size: 0.9rem; color: #e0e8f8;
+  }
+</style>
+</head>
+<body>
+
+<div id="deck">
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 1: TITLE
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-title active" id="s1">
+    <span class="slide-num">01 / 11</span>
+    <div style="text-align:center; max-width:800px;">
+      <div style="font-size:4rem; margin-bottom:20px;">🚗💤</div>
+      <h1 class="grad-blue">Driver Monitoring System</h1>
+      <p class="subtitle">A complete code walkthrough — no machine learning, just pure logic</p>
+      <div style="margin-top:40px; display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
+        <span style="background:rgba(96,160,255,0.12); border:1px solid rgba(96,160,255,0.3); color:#80c0ff; padding:8px 20px; border-radius:20px; font-size:0.88rem;">Python 3</span>
+        <span style="background:rgba(64,224,128,0.12); border:1px solid rgba(64,224,128,0.3); color:#80ffb0; padding:8px 20px; border-radius:20px; font-size:0.88rem;">OpenCV</span>
+        <span style="background:rgba(200,100,255,0.12); border:1px solid rgba(200,100,255,0.3); color:#d080ff; padding:8px 20px; border-radius:20px; font-size:0.88rem;">MediaPipe</span>
+        <span style="background:rgba(255,180,60,0.12); border:1px solid rgba(255,180,60,0.3); color:#ffcc80; padding:8px 20px; border-radius:20px; font-size:0.88rem;">NumPy</span>
+      </div>
+      <p style="margin-top:36px; color:#506070; font-size:0.85rem;">Use ← → arrow keys or buttons below to navigate</p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 2: HOW IT WORKS OVERVIEW
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-overview" id="s2">
+    <span class="slide-num">02 / 11</span>
+    <h2 class="grad-blue">How The System Works</h2>
+    <p style="text-align:center; max-width:700px; margin-bottom:28px;">The system watches your face through the webcam every frame (~30 times/sec) and calculates two numbers — <strong style="color:#fff">EAR</strong> (eyes) and <strong style="color:#fff">MAR</strong> (mouth) — to decide if you're drowsy or yawning.</p>
+    <div class="flow">
+      <div class="flow-box blue">📷 Webcam captures a frame</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-box blue">🤖 MediaPipe finds 468 points on your face</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-box blue">📐 Calculate EAR (Eye Aspect Ratio) &amp; MAR (Mouth Aspect Ratio)</div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-arrow" style="display:flex; gap:60px; font-size:0.9rem; color:#6080a0; width:90%; justify-content:center;">
+        <span>EAR &lt; 0.20 for 15 frames?</span>
+        <span>MAR &gt; 0.60?</span>
+        <span>No face?</span>
+      </div>
+      <div style="display:flex; gap:16px; width:90%; justify-content:center; flex-wrap:wrap;">
+        <div class="flow-box red" style="flex:1; min-width:140px;">⚠ DROWSY ALERT + Beep</div>
+        <div class="flow-box orange" style="flex:1; min-width:140px;">⚠ YAWNING ALERT</div>
+        <div class="flow-box red" style="flex:1; min-width:140px;">⚠ NO FACE</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 3: LIBRARIES
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-libs" id="s3">
+    <span class="slide-num">03 / 11</span>
+    <h2 class="grad-green">Step 1 — The 4 Libraries</h2>
+    <pre><span class="kw">import</span> <span class="fn">cv2</span>                  <span class="cmt"># OpenCV  – webcam + drawing on screen</span>
+<span class="kw">import</span> <span class="fn">mediapipe</span> <span class="kw">as</span> mp      <span class="cmt"># MediaPipe – AI face landmark detection</span>
+<span class="kw">import</span> <span class="fn">numpy</span> <span class="kw">as</span> np          <span class="cmt"># NumPy    – math (distance calculations)</span>
+<span class="kw">import</span> <span class="fn">winsound</span>             <span class="cmt"># WinSound – plays a beep alert (Windows)</span></pre>
+    <div class="cards" style="margin-top:20px;">
+      <div class="card">
+        <div class="icon">📹</div>
+        <h3 style="color:#40e080;">OpenCV (cv2)</h3>
+        <p>Opens your webcam, reads each frame, draws text and colored borders on screen. Think of it as the "display screen" of the program.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🤖</div>
+        <h3 style="color:#c080ff;">MediaPipe</h3>
+        <p>Google's library that finds <strong style="color:#fff">468 exact points</strong> on your face in real-time. No training needed — it's pre-built.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📐</div>
+        <h3 style="color:#60a0ff;">NumPy</h3>
+        <p>Does one job: <code style="color:#ffcb6b;">np.linalg.norm()</code> — calculates the straight-line distance between two points (like a ruler).</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔔</div>
+        <h3 style="color:#ffc060;">WinSound</h3>
+        <p>Plays a <strong style="color:#fff">beep sound</strong> through your speakers when drowsiness is detected. Windows-only built-in module.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 4: FACE MESH + LANDMARKS
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-mesh" id="s4">
+    <span class="slide-num">04 / 11</span>
+    <h2 class="grad-green">Step 2 &amp; 3 — Face Mesh &amp; Landmarks</h2>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.78rem;"><span class="var">face_mesh</span> <span class="op">=</span> mp.solutions.face_mesh.FaceMesh(
+    max_num_faces<span class="op">=</span><span class="num">1</span>,            <span class="cmt"># only 1 driver</span>
+    min_detection_confidence<span class="op">=</span><span class="num">0.5</span>, <span class="cmt"># 50% sure</span>
+    min_tracking_confidence<span class="op">=</span><span class="num">0.5</span>  <span class="cmt"># 50% sure</span>
+)
+
+<span class="var">RIGHT_EYE</span> <span class="op">=</span> [<span class="num">33</span>, <span class="num">160</span>, <span class="num">158</span>, <span class="num">133</span>, <span class="num">153</span>, <span class="num">144</span>]
+<span class="var">LEFT_EYE</span>  <span class="op">=</span> [<span class="num">362</span>, <span class="num">385</span>, <span class="num">387</span>, <span class="num">263</span>, <span class="num">373</span>, <span class="num">380</span>]</pre>
+        <div class="annotation">These 6 numbers per eye are <strong>address labels</strong> for specific points in the 468-point face map. Like a ZIP code for each point on your face.</div>
+      </div>
+      <div>
+        <p style="margin-bottom:14px; color:#a0b8a0; font-size:0.9rem;">MediaPipe maps <strong style="color:#fff">468 unique points</strong> on your face. We only use the ones around each eye:</p>
+        <div style="background:#0d1117; border-radius:12px; padding:16px; border:1px solid #203028;">
+          <p style="font-size:0.82rem; color:#608060; margin-bottom:10px; font-family:'Fira Code',monospace;">// Right Eye Points</p>
+          <div class="face-points">
+            <div class="point-pill">33<br/><span style="color:#506050;font-size:0.7rem;">left corner</span></div>
+            <div class="point-pill">160<br/><span style="color:#506050;font-size:0.7rem;">top-left</span></div>
+            <div class="point-pill">158<br/><span style="color:#506050;font-size:0.7rem;">top-right</span></div>
+            <div class="point-pill">133<br/><span style="color:#506050;font-size:0.7rem;">right corner</span></div>
+            <div class="point-pill">153<br/><span style="color:#506050;font-size:0.7rem;">bottom-left</span></div>
+            <div class="point-pill">144<br/><span style="color:#506050;font-size:0.7rem;">bottom-right</span></div>
+          </div>
+        </div>
+        <p style="margin-top:14px; font-size:0.85rem; color:#708070;">Each point gives us an <strong style="color:#c0ffc0">x, y coordinate</strong> (0.0 to 1.0, normalized). We multiply by frame width/height to get pixel positions.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 5: EAR EXPLAINED
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-ear" id="s5">
+    <span class="slide-num">05 / 11</span>
+    <h2 class="grad-pink">Step 5 — Eye Aspect Ratio (EAR)</h2>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.78rem;"><span class="kw">def</span> <span class="fn">get_ear</span>(landmarks, eye_points, w, h):
+  pts <span class="op">=</span> []
+  <span class="kw">for</span> i <span class="kw">in</span> eye_points:
+    x <span class="op">=</span> <span class="fn">int</span>(landmarks[i].x <span class="op">*</span> w)  <span class="cmt"># pixel X</span>
+    y <span class="op">=</span> <span class="fn">int</span>(landmarks[i].y <span class="op">*</span> h)  <span class="cmt"># pixel Y</span>
+    pts.append(np.array([x, y]))
+
+  V1 <span class="op">=</span> np.linalg.norm(pts[<span class="num">1</span>] <span class="op">-</span> pts[<span class="num">5</span>])
+  V2 <span class="op">=</span> np.linalg.norm(pts[<span class="num">2</span>] <span class="op">-</span> pts[<span class="num">4</span>])
+  H  <span class="op">=</span> np.linalg.norm(pts[<span class="num">0</span>] <span class="op">-</span> pts[<span class="num">3</span>])
+
+  ear <span class="op">=</span> (V1 <span class="op">+</span> V2) <span class="op">/</span> (<span class="num">2.0</span> <span class="op">*</span> H)
+  <span class="kw">return</span> ear</pre>
+      </div>
+      <div>
+        <!-- EYE SVG DIAGRAM -->
+        <div class="eye-svg-wrap">
+          <svg viewBox="0 0 280 120" width="100%" style="max-width:300px;">
+            <!-- Ellipse eye  -->
+            <ellipse cx="140" cy="60" rx="110" ry="44" fill="none" stroke="#304850" stroke-width="1.5"/>
+            <!-- V1 line -->
+            <line x1="100" y1="28" x2="100" y2="92" stroke="#a060ff" stroke-width="2" stroke-dasharray="4,3"/>
+            <text x="72" y="62" fill="#a060ff" font-size="11" font-family="Fira Code">V1</text>
+            <!-- V2 line -->
+            <line x1="180" y1="28" x2="180" y2="92" stroke="#a060ff" stroke-width="2" stroke-dasharray="4,3"/>
+            <text x="186" y="62" fill="#a060ff" font-size="11" font-family="Fira Code">V2</text>
+            <!-- H line -->
+            <line x1="30" y1="60" x2="250" y2="60" stroke="#60c0ff" stroke-width="2" stroke-dasharray="4,3"/>
+            <text x="128" y="52" fill="#60c0ff" font-size="11" font-family="Fira Code">H</text>
+            <!-- Points -->
+            <circle cx="30" cy="60" r="5" fill="#60c0ff"/><text x="20" y="52" fill="#c0c0c0" font-size="10">p0</text>
+            <circle cx="100" cy="28" r="5" fill="#a060ff"/><text x="104" y="26" fill="#c0c0c0" font-size="10">p1</text>
+            <circle cx="180" cy="28" r="5" fill="#a060ff"/><text x="184" y="26" fill="#c0c0c0" font-size="10">p2</text>
+            <circle cx="250" cy="60" r="5" fill="#60c0ff"/><text x="254" y="64" fill="#c0c0c0" font-size="10">p3</text>
+            <circle cx="180" cy="92" r="5" fill="#a060ff"/><text x="184" y="100" fill="#c0c0c0" font-size="10">p4</text>
+            <circle cx="100" cy="92" r="5" fill="#a060ff"/><text x="90" y="106" fill="#c0c0c0" font-size="10">p5</text>
+          </svg>
+        </div>
+        <div class="formula">
+          <div class="eq">EAR = (V1 + V2) / (2 × H)</div>
+          <div class="desc">V = vertical height &nbsp;|&nbsp; H = horizontal width</div>
+        </div>
+        <div class="eye-row" style="margin-top:10px;">
+          <div class="eye-box">
+            <div class="label">Eye Open</div>
+            <div class="value" style="color:#40e080;">≈ 0.30</div>
+          </div>
+          <div class="eye-box">
+            <div class="label">Eye Blinking</div>
+            <div class="value" style="color:#ffc060;">≈ 0.15</div>
+          </div>
+          <div class="eye-box">
+            <div class="label">Threshold</div>
+            <div class="value" style="color:#ff6060;">0.20</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 6: MAR EXPLAINED
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-mar" id="s6">
+    <span class="slide-num">06 / 11</span>
+    <h2 class="grad-red">Step 6 — Mouth Aspect Ratio (MAR)</h2>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.8rem;"><span class="kw">def</span> <span class="fn">get_mar</span>(landmarks, w, h):
+  top    <span class="op">=</span> point(<span class="num">13</span>)  <span class="cmt"># top lip center</span>
+  bottom <span class="op">=</span> point(<span class="num">14</span>)  <span class="cmt"># bottom lip center</span>
+  left   <span class="op">=</span> point(<span class="num">78</span>)  <span class="cmt"># left mouth corner</span>
+  right  <span class="op">=</span> point(<span class="num">308</span>) <span class="cmt"># right mouth corner</span>
+
+  mar <span class="op">=</span> <span class="fn">norm</span>(top<span class="op">-</span>bottom) <span class="op">/</span> <span class="fn">norm</span>(left<span class="op">-</span>right)
+  <span class="kw">return</span> mar</pre>
+        <div class="formula" style="background:rgba(255,80,80,0.08); border-color:rgba(255,80,80,0.25); margin-top:16px;">
+          <div class="eq">MAR = Height / Width</div>
+          <div class="desc">mouth opening height ÷ mouth corner-to-corner width</div>
+        </div>
+        <div class="annotation" style="border-color:#ff8060; background:rgba(255,100,60,0.1); color:#ffb090; margin-top:14px;">
+          <strong>Closed mouth:</strong> MAR ≈ 0.1–0.3 &nbsp;|&nbsp; <strong>Yawning:</strong> MAR &gt; 0.60
+        </div>
+      </div>
+      <div>
+        <!-- MOUTH SVG -->
+        <div class="eye-svg-wrap">
+          <svg viewBox="0 0 280 140" width="100%" style="max-width:300px;">
+            <!-- Mouth shape -->
+            <path d="M30 70 Q70 45 140 40 Q210 45 250 70 Q210 120 140 125 Q70 120 30 70 Z" fill="rgba(200,60,60,0.15)" stroke="#506070" stroke-width="1.5"/>
+            <!-- Height line -->
+            <line x1="140" y1="40" x2="140" y2="125" stroke="#ff6060" stroke-width="2.5" stroke-dasharray="5,3"/>
+            <text x="148" y="86" fill="#ff8080" font-size="12" font-family="Fira Code">Height</text>
+            <!-- Width line -->
+            <line x1="30" y1="70" x2="250" y2="70" stroke="#60c0ff" stroke-width="2.5" stroke-dasharray="5,3"/>
+            <text x="105" y="62" fill="#80c0ff" font-size="12" font-family="Fira Code">Width</text>
+            <!-- Points -->
+            <circle cx="140" cy="40" r="6" fill="#ff6060"/><text x="148" y="38" fill="#aaa" font-size="10">13 (top)</text>
+            <circle cx="140" cy="125" r="6" fill="#ff6060"/><text x="148" y="130" fill="#aaa" font-size="10">14 (bottom)</text>
+            <circle cx="30" cy="70" r="6" fill="#60c0ff"/><text x="6" y="66" fill="#aaa" font-size="10">78</text>
+            <circle cx="250" cy="70" r="6" fill="#60c0ff"/><text x="255" y="66" fill="#aaa" font-size="10">308</text>
+          </svg>
+        </div>
+        <div class="eye-row" style="margin-top:10px;">
+          <div class="eye-box">
+            <div class="label">Mouth Closed</div>
+            <div class="value" style="color:#40e080;">≈ 0.20</div>
+          </div>
+          <div class="eye-box">
+            <div class="label">Yawning</div>
+            <div class="value" style="color:#ff6060;">≈ 0.70+</div>
+          </div>
+          <div class="eye-box">
+            <div class="label">Threshold</div>
+            <div class="value" style="color:#ffc060;">0.60</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 7: VARIABLES & THRESHOLDS
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-thresh" id="s7">
+    <span class="slide-num">07 / 11</span>
+    <h2 class="grad-blue">Step 4 — Variables &amp; Thresholds Explained</h2>
+    <pre style="margin-bottom:18px;"><span class="var">EAR_THRESHOLD</span>  <span class="op">=</span> <span class="num">0.20</span>   <span class="cmt"># if EAR drops below this → eyes are closed</span>
+<span class="var">MAR_THRESHOLD</span>  <span class="op">=</span> <span class="num">0.60</span>   <span class="cmt"># if MAR goes above this  → mouth is open</span>
+<span class="var">DROWSY_FRAMES</span>  <span class="op">=</span> <span class="num">15</span>     <span class="cmt"># must be closed for 15 frames straight</span>
+<span class="var">closed_counter</span> <span class="op">=</span> <span class="num">0</span>      <span class="cmt"># counter starts at 0, resets if eyes open</span></pre>
+    <table>
+      <tr><th>Variable</th><th>Type</th><th>What It Does</th><th>Why It Matters</th></tr>
+      <tr>
+        <td><code style="color:#ffcb6b;">EAR_THRESHOLD</code></td>
+        <td>float</td>
+        <td>Cutoff value for EAR</td>
+        <td>Below 0.20 = eyes considered <strong style="color:#ff8080">closed</strong></td>
+      </tr>
+      <tr>
+        <td><code style="color:#ffcb6b;">MAR_THRESHOLD</code></td>
+        <td>float</td>
+        <td>Cutoff value for MAR</td>
+        <td>Above 0.60 = mouth considered <strong style="color:#ff8080">wide open</strong></td>
+      </tr>
+      <tr>
+        <td><code style="color:#ffcb6b;">DROWSY_FRAMES</code></td>
+        <td>int</td>
+        <td>Frame count required</td>
+        <td>Prevents false alarm from normal <strong style="color:#ffc090">blinking</strong></td>
+      </tr>
+      <tr>
+        <td><code style="color:#ffcb6b;">closed_counter</code></td>
+        <td>int</td>
+        <td>Counts consecutive closed frames</td>
+        <td>Resets to 0 the moment eyes open. Like a stopwatch.</td>
+      </tr>
+    </table>
+    <div class="annotation" style="margin-top:16px;">
+      💡 <strong>WHY 15 frames?</strong> — At ~30 fps, 15 frames = <strong>0.5 seconds</strong>. A blink takes ~0.3s. So if eyes are closed for 0.5s+ it's definitely <em>not</em> a blink.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 8: MAIN LOOP
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-loop" id="s8">
+    <span class="slide-num">08 / 11</span>
+    <h2 class="grad-gold">Step 7 &amp; 8 — Webcam + Main Loop</h2>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.78rem;"><span class="cmt"># Open the webcam</span>
+cam <span class="op">=</span> cv2.VideoCapture(<span class="num">0</span>)
+<span class="cmt"># 0 = first connected camera</span>
+
+<span class="cmt"># Loop runs FOREVER until Q pressed</span>
+<span class="kw">while</span> cam.isOpened():
+
+  success, frame <span class="op">=</span> cam.read()
+  <span class="cmt"># success = True/False</span>
+  <span class="cmt"># frame   = one image from camera</span>
+
+  frame <span class="op">=</span> cv2.flip(frame, <span class="num">1</span>)
+  <span class="cmt"># flip = mirror like a selfie</span>
+
+  h, w, _ <span class="op">=</span> frame.shape
+  <span class="cmt"># h = height, w = width in pixels</span>
+
+  rgb <span class="op">=</span> cv2.cvtColor(frame, COLOR_BGR2RGB)
+  <span class="cmt"># OpenCV uses BGR, MediaPipe needs RGB</span>
+
+  result <span class="op">=</span> face_mesh.process(rgb)
+  <span class="cmt"># AI scans the frame, finds face</span></pre>
+      </div>
+      <div>
+        <div class="cards" style="flex-direction:column; gap:12px;">
+          <div class="card" style="min-width:unset;">
+            <h3 style="color:#ffd060;">🎥 VideoCapture(0)</h3>
+            <p><code>0</code> = default webcam. Change to <code>1</code> for external camera. Returns a <em>camera object</em> we call <code>cam</code>.</p>
+          </div>
+          <div class="card" style="min-width:unset;">
+            <h3 style="color:#ffd060;">↩ while cam.isOpened()</h3>
+            <p>An <strong>infinite loop</strong>. Each iteration = one video frame. This is how all real-time video programs work — process one frame at a time, very fast.</p>
+          </div>
+          <div class="card" style="min-width:unset;">
+            <h3 style="color:#ffd060;">🎨 BGR vs RGB</h3>
+            <p>OpenCV stores colors as Blue-Green-Red. MediaPipe expects Red-Green-Blue. <code>cvtColor</code> swaps the channels so colors don't appear weird.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 9: DROWSINESS LOGIC
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-alert" id="s9">
+    <span class="slide-num">09 / 11</span>
+    <h2 class="grad-red">Step 9 — Drowsiness &amp; Yawn Detection Logic</h2>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.78rem;"><span class="cmt"># --- DROWSINESS CHECK ---</span>
+<span class="kw">if</span> ear <span class="op">&lt;</span> <span class="var">EAR_THRESHOLD</span>:  <span class="cmt"># eyes closed?</span>
+    closed_counter <span class="op">+=</span> <span class="num">1</span>   <span class="cmt"># count frames</span>
+
+    <span class="kw">if</span> closed_counter <span class="op">&gt;=</span> <span class="var">DROWSY_FRAMES</span>:
+        status <span class="op">=</span> <span class="str">"⚠ DROWSY! WAKE UP!"</span>
+        color  <span class="op">=</span> (<span class="num">0</span>, <span class="num">0</span>, <span class="num">255</span>)    <span class="cmt"># RED</span>
+        winsound.Beep(<span class="num">1000</span>, <span class="num">200</span>)
+        <span class="cmt"># 1000Hz tone for 200 milliseconds</span>
+<span class="kw">else</span>:
+    closed_counter <span class="op">=</span> <span class="num">0</span>  <span class="cmt"># reset → eyes opened</span>
+
+<span class="cmt"># --- YAWN CHECK ---</span>
+<span class="kw">if</span> mar <span class="op">&gt;</span> <span class="var">MAR_THRESHOLD</span>:  <span class="cmt"># mouth wide open?</span>
+    status <span class="op">=</span> <span class="str">"⚠ YAWNING DETECTED!"</span>
+    color  <span class="op">=</span> (<span class="num">0</span>, <span class="num">165</span>, <span class="num">255</span>)  <span class="cmt"># ORANGE</span></pre>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div class="annotation" style="border-color:#60a0ff; background:rgba(60,100,255,0.08); color:#a0c0ff;">
+          <strong>The Counter Trick:</strong><br/>
+          Think of <code>closed_counter</code> as a timer. Every frame with closed eyes adds 1. If eyes open again, it resets to 0. Only when it hits 15 does the alarm fire.
+        </div>
+        <div class="flow">
+          <div class="flow-box">Frame 1: EAR=0.12 → counter=1</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-box">Frame 2: EAR=0.10 → counter=2</div>
+          <div class="flow-arrow">↓ ... keeps going ...</div>
+          <div class="flow-box red">Frame 15: EAR=0.09 → counter=15 → 🚨 ALARM!</div>
+          <div class="flow-arrow">↓ (if eyes open mid-way)</div>
+          <div class="flow-box green">Frame 8: EAR=0.32 → counter RESETS to 0</div>
+        </div>
+        <div class="annotation" style="border-color:#ff8040; background:rgba(255,100,40,0.08); color:#ffb090;">
+          <strong>winsound.Beep(1000, 200)</strong><br/>
+          First number = frequency in Hz (pitch of sound)<br/>
+          Second number = duration in milliseconds (200ms = 0.2 seconds)
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 10: ALERTS & DISPLAY
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-flow" id="s10">
+    <span class="slide-num">10 / 11</span>
+    <h2 class="grad-blue">Step 10 &amp; 11 — Display + Colors</h2>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.78rem;"><span class="cmt"># Show status text on frame</span>
+cv2.putText(frame, status, (<span class="num">10</span>, <span class="num">35</span>),
+    cv2.FONT_HERSHEY_SIMPLEX, <span class="num">0.9</span>, color, <span class="num">2</span>)
+
+<span class="cmt"># Draw colored border around frame</span>
+cv2.rectangle(frame,
+    (<span class="num">0</span>, <span class="num">0</span>),          <span class="cmt"># top-left corner</span>
+    (w<span class="op">-</span><span class="num">1</span>, h<span class="op">-</span><span class="num">1</span>),       <span class="cmt"># bottom-right corner</span>
+    color, <span class="num">3</span>)         <span class="cmt"># color, 3px thick</span>
+
+<span class="cmt"># Show the frame on screen</span>
+cv2.imshow(<span class="str">"Driver Monitoring System"</span>, frame)
+
+<span class="cmt"># Wait 1ms, check if Q was pressed</span>
+<span class="kw">if</span> cv2.waitKey(<span class="num">1</span>) <span class="op">&amp;</span> <span class="num">0xFF</span> <span class="op">==</span> <span class="fn">ord</span>(<span class="str">'q'</span>):
+    <span class="kw">break</span>
+
+<span class="cmt"># Cleanup</span>
+cam.release()
+cv2.destroyAllWindows()</pre>
+      </div>
+      <div>
+        <h3 style="color:#fff; margin-bottom:14px;">The 3 Alert States</h3>
+        <div class="alert-states" style="flex-direction:column; gap:12px;">
+          <div class="alert-state state-green">
+            <div class="state-icon">✅</div>
+            <div class="state-name" style="color:#80ffb0;">ACTIVE — Green Border</div>
+            <div class="state-desc" style="color:#50a070;">color = (0, 200, 0) — Eyes open, all normal</div>
+          </div>
+          <div class="alert-state state-red">
+            <div class="state-icon">🔴</div>
+            <div class="state-name" style="color:#ffaaaa;">DROWSY — Red Border + Beep</div>
+            <div class="state-desc" style="color:#a06060;">color = (0, 0, 255) — Eyes closed 15+ frames</div>
+          </div>
+          <div class="alert-state state-orange">
+            <div class="state-icon">🟠</div>
+            <div class="state-name" style="color:#ffd090;">YAWNING — Orange Border</div>
+            <div class="state-desc" style="color:#a07040;">color = (0, 165, 255) — Mouth wide open</div>
+          </div>
+        </div>
+        <div class="annotation" style="margin-top:14px; border-color:#6080a0; background:rgba(60,80,100,0.1); color:#90a8c0;">
+          <strong>Colors are BGR!</strong> (0,0,255) looks red, not blue, because OpenCV uses Blue-Green-Red order.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+       SLIDE 11: HOW TO RUN
+  ══════════════════════════════════════════════════════ -->
+  <section class="slide bg-run" id="s11">
+    <span class="slide-num">11 / 11</span>
+    <h2 class="grad-green">How to Run It Anywhere</h2>
+    <div class="two-col">
+      <div>
+        <h3 style="color:#80ffb0; margin-bottom:12px;">📦 Install &amp; Run</h3>
+        <pre><span class="cmt"># 1. Install libraries (one time only)</span>
+pip install -r requirements.txt
+
+<span class="cmt"># 2. Run the program</span>
+python driver_monitor.py
+
+<span class="cmt"># 3. Press Q to quit</span></pre>
+        <div class="annotation" style="margin-top:16px; border-color:#40b070; background:rgba(40,160,100,0.08); color:#80e0b0;">
+          <strong>Share it:</strong> Just send 2 files — <code>driver_monitor.py</code> + <code>requirements.txt</code>. Anyone with Python can run it!
+        </div>
+        <h3 style="color:#80ffb0; margin-top:20px; margin-bottom:12px;">📋 requirements.txt</h3>
+        <pre>opencv-python
+mediapipe==0.10.14
+numpy</pre>
+      </div>
+      <div>
+        <h3 style="color:#80ffb0; margin-bottom:16px;">🧠 Full Program Summary</h3>
+        <table>
+          <tr><th>Step</th><th>What happens</th></tr>
+          <tr><td>1</td><td>Import 4 libraries</td></tr>
+          <tr><td>2–3</td><td>Setup face mesh, pick eye/mouth points</td></tr>
+          <tr><td>4</td><td>Set thresholds (0.20 EAR, 0.60 MAR, 15 frames)</td></tr>
+          <tr><td>5</td><td>get_ear() calculates eye openness ratio</td></tr>
+          <tr><td>6</td><td>get_mar() calculates mouth openness ratio</td></tr>
+          <tr><td>7</td><td>Open webcam</td></tr>
+          <tr><td>8</td><td>Infinite loop — capture + flip + convert</td></tr>
+          <tr><td>9</td><td>Detect face → compute EAR, MAR → fire alerts</td></tr>
+          <tr><td>10</td><td>Draw text + colored border on frame</td></tr>
+          <tr><td>11</td><td>Press Q → break loop</td></tr>
+          <tr><td>12</td><td>Release webcam, close window</td></tr>
+        </table>
+        <div style="margin-top:14px; text-align:center;">
+          <span style="font-size:0.85rem; color:#506060;">Total lines of code: ~100 &nbsp;|&nbsp; No AI training needed &nbsp;|&nbsp; Just pure math!</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- NAV CONTROLS -->
+<div id="nav">
+  <button id="prev" onclick="go(-1)" disabled>← Prev</button>
+  <span id="slide-counter">1 / 11</span>
+  <button id="next" onclick="go(1)">Next →</button>
+</div>
+
+<!-- DOTS -->
+<div id="dots"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total  = slides.length;
+  let cur = 0;
+
+  // Build dots
+  const dotsEl = document.getElementById('dots');
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotsEl.appendChild(d);
+  });
+
+  function goTo(n) {
+    slides[cur].classList.remove('active');
+    dotsEl.children[cur].classList.remove('active');
+    cur = Math.max(0, Math.min(total - 1, n));
+    slides[cur].classList.add('active');
+    dotsEl.children[cur].classList.add('active');
+    document.getElementById('slide-counter').textContent = (cur + 1) + ' / ' + total;
+    document.getElementById('prev').disabled = cur === 0;
+    document.getElementById('next').disabled = cur === total - 1;
+  }
+
+  function go(dir) { goTo(cur + dir); }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') go(1);
+    if (e.key === 'ArrowLeft')  go(-1);
+  });
+</script>
+</body>
+</html>
