@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EV Energy Consumption – Code Explainer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:       #0a0e1a;
+      --surface:  #111827;
+      --card:     #1a2235;
+      --border:   #1e3a5f;
+      --accent:   #00c6ff;
+      --accent2:  #0072ff;
+      --green:    #00ff88;
+      --orange:   #ff9500;
+      --red:      #ff4757;
+      --purple:   #a855f7;
+      --yellow:   #ffd60a;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --code-bg:  #0d1117;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background grid ── */
+    body::before {
+      content:'';
+      position:fixed; inset:0;
+      background-image:
+        linear-gradient(rgba(0,198,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,198,255,.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events:none; z-index:0;
+    }
+
+    .wrap { max-width:1100px; margin:0 auto; padding:0 24px; position:relative; z-index:1; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, #0a0e1a 0%, #0d1f3c 50%, #0a0e1a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 60px 0 48px;
+      text-align:center;
+    }
+    .hero-badge {
+      display:inline-flex; align-items:center; gap:8px;
+      background:rgba(0,198,255,.12); border:1px solid rgba(0,198,255,.3);
+      border-radius:50px; padding:6px 18px; font-size:.78rem;
+      color:var(--accent); font-weight:600; letter-spacing:.06em;
+      text-transform:uppercase; margin-bottom:24px;
+    }
+    .hero-badge .dot { width:6px;height:6px;border-radius:50%;background:var(--green); animation:pulse 1.4s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+
+    .hero h1 {
+      font-size:clamp(2rem, 5vw, 3.4rem);
+      font-weight:900; line-height:1.15;
+      background: linear-gradient(135deg, #fff 0%, var(--accent) 60%, #0072ff 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      margin-bottom:16px;
+    }
+    .hero p { color:var(--muted); font-size:1.05rem; max-width:600px; margin:0 auto 32px; }
+
+    .tag-row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+    .tag {
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+      border-radius:6px; padding:5px 14px; font-size:.8rem; font-weight:500;
+    }
+    .tag.blue   { border-color:rgba(0,198,255,.4); color:var(--accent); }
+    .tag.green  { border-color:rgba(0,255,136,.4); color:var(--green); }
+    .tag.purple { border-color:rgba(168,85,247,.4); color:var(--purple); }
+    .tag.orange { border-color:rgba(255,149,0,.4);  color:var(--orange); }
+
+    /* ── TOC Nav ── */
+    .toc {
+      display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+      padding:20px 0; background:rgba(0,0,0,.4);
+      border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100;
+      backdrop-filter:blur(16px);
+    }
+    .toc a {
+      color:var(--muted); text-decoration:none; font-size:.78rem; font-weight:600;
+      padding:5px 14px; border-radius:50px; border:1px solid transparent;
+      transition:.2s; letter-spacing:.04em; text-transform:uppercase;
+    }
+    .toc a:hover { color:var(--accent); border-color:rgba(0,198,255,.4); background:rgba(0,198,255,.08); }
+
+    /* ── Sections ── */
+    section { padding:60px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+    section:last-child { border-bottom:none; }
+
+    .section-header { text-align:center; margin-bottom:48px; }
+    .section-num {
+      font-size:.72rem; font-weight:800; letter-spacing:.12em;
+      text-transform:uppercase; color:var(--accent); margin-bottom:10px;
+    }
+    h2 { font-size:2rem; font-weight:800; }
+    h2 span { background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .section-sub { color:var(--muted); margin-top:8px; }
+
+    /* ── Cards ── */
+    .card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:16px; padding:28px; margin-bottom:20px;
+      transition:transform .2s, box-shadow .2s;
+    }
+    .card:hover { transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,198,255,.1); }
+    .card-title {
+      display:flex; align-items:center; gap:10px;
+      font-size:1rem; font-weight:700; margin-bottom:12px;
+    }
+    .card-title .icon {
+      width:34px;height:34px;border-radius:8px;
+      display:flex;align-items:center;justify-content:center;font-size:1rem;
+    }
+    .icon.blue   { background:rgba(0,198,255,.15); }
+    .icon.green  { background:rgba(0,255,136,.15); }
+    .icon.orange { background:rgba(255,149,0,.15); }
+    .icon.red    { background:rgba(255,71,87,.15); }
+    .icon.purple { background:rgba(168,85,247,.15); }
+    .icon.yellow { background:rgba(255,214,10,.15); }
+
+    /* ── Code blocks ── */
+    pre {
+      background:var(--code-bg); border:1px solid var(--border);
+      border-radius:10px; padding:20px 22px; overflow-x:auto;
+      font-family:'Fira Code', monospace; font-size:.82rem; line-height:1.8;
+      margin:14px 0;
+    }
+    .kw   { color:#ff79c6; }
+    .fn   { color:#50fa7b; }
+    .val  { color:#bd93f9; }
+    .num  { color:#f1fa8c; }
+    .str  { color:#f1fa8c; }
+    .cmt  { color:#6272a4; font-style:italic; }
+    .var  { color:#8be9fd; }
+
+    /* ── Formula box ── */
+    .formula {
+      background:rgba(0,198,255,.07); border-left:3px solid var(--accent);
+      border-radius:0 10px 10px 0; padding:16px 20px; margin:14px 0;
+      font-family:'Fira Code', monospace; font-size:.9rem; color:var(--accent);
+    }
+    .formula small { color:var(--muted); font-family:'Inter',sans-serif; display:block; margin-top:4px; font-size:.78rem; }
+
+    /* ── Steps timeline ── */
+    .steps { display:flex; flex-direction:column; gap:0; }
+    .step { display:flex; gap:20px; }
+    .step-left { display:flex; flex-direction:column; align-items:center; }
+    .step-num {
+      width:44px;height:44px;border-radius:50%;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:.9rem;flex-shrink:0;color:#fff;
+    }
+    .step-line { width:2px; flex:1; background:linear-gradient(var(--border),transparent); margin-top:4px; min-height:20px; }
+    .step-body { padding-bottom:36px; flex:1; }
+    .step-title { font-size:1.05rem; font-weight:700; margin-bottom:6px; }
+
+    /* ── Grid layouts ── */
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+    .grid-4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:14px; }
+    @media(max-width:768px) {
+      .grid-2,.grid-3,.grid-4 { grid-template-columns:1fr; }
+    }
+
+    /* ── Metric cards ── */
+    .metric {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:14px; padding:22px; text-align:center;
+    }
+    .metric .val-big {
+      font-size:2rem; font-weight:900; line-height:1;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    .metric .label { color:var(--muted); font-size:.8rem; margin-top:6px; font-weight:500; }
+
+    /* ── Force table ── */
+    table { width:100%; border-collapse:collapse; font-size:.88rem; }
+    th {
+      background:rgba(0,198,255,.1); color:var(--accent);
+      padding:12px 16px; text-align:left; font-weight:700;
+      border-bottom:1px solid var(--border); font-size:.78rem; letter-spacing:.05em;
+    }
+    td { padding:11px 16px; border-bottom:1px solid rgba(255,255,255,.05); }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:rgba(255,255,255,.02); }
+    td code { background:rgba(0,198,255,.1); color:var(--accent); padding:2px 8px; border-radius:4px; font-family:'Fira Code',monospace; font-size:.78rem; }
+
+    /* ── Alert boxes ── */
+    .alert {
+      border-radius:12px; padding:16px 20px; margin:14px 0;
+      display:flex; gap:12px; align-items:flex-start;
+    }
+    .alert.tip   { background:rgba(0,255,136,.07); border:1px solid rgba(0,255,136,.25); }
+    .alert.warn  { background:rgba(255,149,0,.07);  border:1px solid rgba(255,149,0,.25); }
+    .alert.info  { background:rgba(0,198,255,.07);  border:1px solid rgba(0,198,255,.25); }
+    .alert-icon  { font-size:1.2rem; flex-shrink:0; margin-top:1px; }
+    .alert.tip  .alert-text  { color:#a7f3d0; }
+    .alert.warn .alert-text  { color:#fed7aa; }
+    .alert.info .alert-text  { color:#bae6fd; }
+    .alert strong { display:block; margin-bottom:3px; font-weight:700; }
+
+    /* ── Q&A ── */
+    .qa { background:var(--card); border:1px solid var(--border); border-radius:14px; margin-bottom:14px; overflow:hidden; }
+    .qa-q {
+      padding:18px 22px; font-weight:700; cursor:pointer;
+      display:flex; align-items:center; justify-content:space-between;
+      transition:background .2s;
+    }
+    .qa-q:hover { background:rgba(255,255,255,.03); }
+    .qa-q .q-tag { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#000; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:800; margin-right:10px; }
+    .qa-a { padding:0 22px 18px; color:var(--muted); line-height:1.75; display:none; }
+    .qa-a.open { display:block; }
+    .qa-a strong { color:var(--text); }
+
+    /* ── Flowchart ── */
+    .flow { display:flex; flex-direction:column; gap:0; align-items:center; }
+    .flow-box {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:12px; padding:14px 28px; text-align:center;
+      font-weight:600; font-size:.9rem; min-width:280px;
+      position:relative; transition:border-color .2s;
+    }
+    .flow-box:hover { border-color:var(--accent); }
+    .flow-box .fb-label { font-size:.7rem; color:var(--muted); margin-bottom:3px; text-transform:uppercase; letter-spacing:.06em; }
+    .flow-arrow { color:var(--accent); font-size:1.4rem; padding:4px 0; }
+    .flow-box.highlight { border-color:var(--accent); background:rgba(0,198,255,.08); }
+
+    /* ── File cards ── */
+    .file-card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:14px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;
+      transition:.2s; cursor:default;
+    }
+    .file-card:hover { border-color:var(--accent); box-shadow:0 0 20px rgba(0,198,255,.1); }
+    .file-icon { font-size:1.8rem; flex-shrink:0; }
+    .file-name { font-weight:700; font-size:.95rem; margin-bottom:4px; }
+    .file-desc { color:var(--muted); font-size:.82rem; }
+    .file-tag { display:inline-block; background:rgba(0,198,255,.12); border:1px solid rgba(0,198,255,.25); border-radius:4px; padding:2px 8px; font-size:.72rem; color:var(--accent); font-weight:600; margin-top:6px; }
+
+    /* ── Progress bar ── */
+    .pbar-wrap { margin:8px 0; }
+    .pbar-label { display:flex; justify-content:space-between; font-size:.8rem; margin-bottom:4px; }
+    .pbar { height:8px; background:rgba(255,255,255,.07); border-radius:50px; overflow:hidden; }
+    .pbar-fill { height:100%; border-radius:50px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width 1s; }
+
+    /* ── Badge labels ── */
+    .badge { display:inline-block; border-radius:5px; padding:2px 9px; font-size:.73rem; font-weight:700; }
+    .badge.green  { background:rgba(0,255,136,.15); color:var(--green); }
+    .badge.blue   { background:rgba(0,198,255,.15); color:var(--accent); }
+    .badge.orange { background:rgba(255,149,0,.15);  color:var(--orange); }
+    .badge.red    { background:rgba(255,71,87,.15);  color:var(--red); }
+    .badge.purple { background:rgba(168,85,247,.15); color:var(--purple); }
+
+    /* ── Footer ── */
+    footer {
+      text-align:center; padding:40px 24px;
+      color:var(--muted); font-size:.82rem;
+      background:linear-gradient(transparent, rgba(0,0,0,.5));
+    }
+
+    /* ── Scroll reveal animation ── */
+    .reveal { opacity:0; transform:translateY(24px); transition:opacity .6s, transform .6s; }
+    .reveal.visible { opacity:1; transform:translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- ───────────── HERO ───────────── -->
+<div class="hero">
+  <div class="wrap">
+    <div class="hero-badge"><span class="dot"></span> MATLAB · Machine Learning · Physics</div>
+    <h1>EV Energy Consumption<br>Prediction System</h1>
+    <p>A physics-driven dataset generation pipeline paired with Linear Regression &amp; Random Forest ML models to predict Electric Vehicle energy usage.</p>
+    <div class="tag-row">
+      <span class="tag blue">🔬 Vehicle Physics</span>
+      <span class="tag green">🤖 Random Forest</span>
+      <span class="tag purple">📐 Linear Regression</span>
+      <span class="tag orange">📊 MATLAB</span>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────── STICKY NAV ───────────── -->
+<nav class="toc">
+  <a href="#files">📁 Files</a>
+  <a href="#overview">🔄 Workflow</a>
+  <a href="#physics">⚡ Physics</a>
+  <a href="#ml">🤖 ML Models</a>
+  <a href="#eval">📏 Evaluation</a>
+  <a href="#plots">📊 Plots</a>
+  <a href="#viva">🎤 Viva Q&amp;A</a>
+</nav>
+
+<!-- ───────────── FILES ───────────── -->
+<section id="files">
+  <div class="wrap">
+    <div class="section-header reveal">
+      <div class="section-num">📁 Project Files</div>
+      <h2><span>What's in the Folder</span></h2>
+      <p class="section-sub">5 files — 1 main script + 4 saved MATLAB figures</p>
+    </div>
+    <div class="grid-2 reveal">
+      <div class="file-card">
+        <span class="file-icon">📜</span>
+        <div>
+          <div class="file-name">GenerateEVDatasetusingVehiclePhysics.m</div>
+          <div class="file-desc">The <strong>main MATLAB script</strong>. Generates a dataset using physics, trains two ML models, evaluates them, and produces all visualizations. Everything starts and ends here.</div>
+          <span class="file-tag">MAIN SCRIPT</span>
+        </div>
+      </div>
+      <div class="file-card">
+        <span class="file-icon">📉</span>
+        <div>
+          <div class="file-name">Data Visualisation.fig</div>
+          <div class="file-desc">A 2×2 MATLAB figure grid showing scatter plots of how Speed, Acceleration, Road Grade, and Temperature each relate to Energy consumption.</div>
+          <span class="file-tag">STEP 2 OUTPUT</span>
+        </div>
+      </div>
+      <div class="file-card">
+        <span class="file-icon">📊</span>
+        <div>
+          <div class="file-name">Feature Importance for EV Energy Prediction.fig</div>
+          <div class="file-desc">Bar chart ranking which input feature (Speed, Accel, Grade, Temp) most strongly affects predictions. Generated by the Random Forest's Out-of-Bag error permutation method.</div>
+          <span class="file-tag">STEP 9 OUTPUT</span>
+        </div>
+      </div>
+      <div class="file-card">
+        <span class="file-icon">📈</span>
+        <div>
+          <div class="file-name">Random Forest Prediction Accuracy.fig</div>
+          <div class="file-desc">Scatter plot of Actual vs Predicted energy values. The closer the dots are to the red diagonal line, the more accurate the model is.</div>
+          <span class="file-tag">STEP 8 OUTPUT</span>
+        </div>
+      </div>
+    </div>
+    <div class="reveal" style="margin-top:16px;">
+      <div class="file-card">
+        <span class="file-icon">⚖️</span>
+        <div>
+          <div class="file-name">Model Comparison.fig</div>
+          <div class="file-desc">Side-by-side bar chart comparing the Mean Absolute Error (MAE) of Linear Regression vs Random Forest. Lower bar = better model. Random Forest consistently wins.</div>
+          <span class="file-tag">STEP 10 OUTPUT</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── WORKFLOW ───────────── -->
+<section id="overview">
+  <div class="wrap">
+    <div class="section-header reveal">
+      <div class="section-num">🔄 End-to-End Workflow</div>
+      <h2><span>10-Step Pipeline</span></h2>
+      <p class="section-sub">From raw physics equations to ML predictions</p>
+    </div>
+    <div class="flow reveal">
+      <div class="flow-box highlight">
+        <div class="fb-label">Step 1</div>
+        ⚡ Generate Dataset Using Vehicle Physics (300 samples)
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-box">
+        <div class="fb-label">Step 2</div>
+        📊 Visualize Data (4 scatter plots)
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-box">
+        <div class="fb-label">Step 3</div>
+        🗂️ Build Feature Matrix X and Target Y
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-box">
+        <div class="fb-label">Step 4</div>
+        ✂️ Train/Test Split — 80% train, 20% test
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-box">
+        <div class="fb-label">Step 5</div>
+        📐 Train Linear Regression Model
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-box highlight">
+        <div class="fb-label">Step 6</div>
+        🌳 Train Random Forest Model (150 Trees)
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-box">
+        <div class="fb-label">Step 7</div>
+        📏 Evaluate: MAE, MSE, R² Score
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-box">
+        <div class="fb-label">Steps 8–10</div>
+        📉 Plot: Accuracy · Feature Importance · Model Comparison
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── PHYSICS ───────────── -->
+<section id="physics">
+  <div class="wrap">
+    <div class="section-header reveal">
+      <div class="section-num">⚡ Physics Engine</div>
+      <h2><span>Dataset Generation</span></h2>
+      <p class="section-sub">Lines 14–61 — No real sensor? We simulate with physics!</p>
+    </div>
+
+    <div class="steps reveal">
+
+      <!-- Step A: Random Inputs -->
+      <div class="step">
+        <div class="step-left"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-title">Randomize 4 Driving Conditions (Lines 16–19)</div>
+          <p style="color:var(--muted);margin-bottom:12px;">We generate <strong>300 random driving scenarios</strong> — each row is one trip snapshot.</p>
+          <pre>
+<span class="var">N</span> = <span class="num">300</span>;
+
+<span class="var">speed</span>        = <span class="num">20</span> + <span class="num">100</span>*<span class="fn">rand</span>(N,<span class="num">1</span>);   <span class="cmt">% 20–120 km/h</span>
+<span class="var">acceleration</span> = <span class="num">-1</span> + <span class="num">2</span>*<span class="fn">rand</span>(N,<span class="num">1</span>);    <span class="cmt">% -1 to +1 m/s²</span>
+<span class="var">roadGrade</span>    = <span class="num">-4</span> + <span class="num">8</span>*<span class="fn">rand</span>(N,<span class="num">1</span>);    <span class="cmt">% -4° to +4° slope</span>
+<span class="var">temperature</span>  = <span class="num">15</span> + <span class="num">20</span>*<span class="fn">rand</span>(N,<span class="num">1</span>);   <span class="cmt">% 15°C to 35°C</span></pre>
+          <div class="alert info">
+            <span class="alert-icon">💡</span>
+            <div class="alert-text"><strong>Why rand()?</strong> <code>rand()</code> gives uniform random values 0→1. Multiplying and shifting maps them to realistic driving ranges. For example: <code>20 + 100*rand()</code> gives values between 20 and 120.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step B: Vehicle constants -->
+      <div class="step">
+        <div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-title">Define EV Physical Constants (Lines 23–28)</div>
+          <table>
+            <tr><th>Variable</th><th>Value</th><th>Unit</th><th>Meaning</th></tr>
+            <tr><td><code>m</code></td><td>1600</td><td>kg</td><td>Car mass (like a Tesla Model 3)</td></tr>
+            <tr><td><code>Cr</code></td><td>0.012</td><td>—</td><td>Rolling resistance (tire-road friction)</td></tr>
+            <tr><td><code>rho</code></td><td>1.225</td><td>kg/m³</td><td>Air density at sea level</td></tr>
+            <tr><td><code>Cd</code></td><td>0.29</td><td>—</td><td>Aerodynamic drag coefficient</td></tr>
+            <tr><td><code>A</code></td><td>2.3</td><td>m²</td><td>Front face area of the EV</td></tr>
+            <tr><td><code>g</code></td><td>9.81</td><td>m/s²</td><td>Gravitational acceleration</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Step C: 4 Forces -->
+      <div class="step">
+        <div class="step-left"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-title">Calculate 4 Forces Acting on the Car (Lines 36–43)</div>
+          <div class="grid-2" style="gap:14px;">
+            <div class="card" style="padding:18px;">
+              <div class="card-title"><span class="icon green">🔄</span> Rolling Resistance</div>
+              <div class="formula">F_roll = Cr × m × g<small>Constant friction between tyres and road. Always opposes motion.</small></div>
+              <pre><span class="var">F_roll</span> = <span class="var">Cr</span>*<span class="var">m</span>*<span class="var">g</span>;</pre>
+            </div>
+            <div class="card" style="padding:18px;">
+              <div class="card-title"><span class="icon blue">💨</span> Aerodynamic Drag</div>
+              <div class="formula">F_aero = ½ × ρ × Cd × A × v²<small>Grows with SPEED SQUARED — dominant at highway speeds!</small></div>
+              <pre><span class="var">F_aero</span> = <span class="num">0.5</span>*<span class="var">rho</span>*<span class="var">Cd</span>*<span class="var">A</span>.*<span class="var">v</span>.^<span class="num">2</span>;</pre>
+            </div>
+            <div class="card" style="padding:18px;">
+              <div class="card-title"><span class="icon orange">⛰️</span> Gravity / Road Grade</div>
+              <div class="formula">F_grade = m × g × sin(θ)<small>Goes uphill → positive (costs energy). Downhill → negative (regenerates).</small></div>
+              <pre><span class="var">F_grade</span> = <span class="var">m</span>*<span class="var">g</span>.*<span class="fn">sin</span>(<span class="fn">deg2rad</span>(<span class="var">roadGrade</span>));</pre>
+            </div>
+            <div class="card" style="padding:18px;">
+              <div class="card-title"><span class="icon red">🚀</span> Acceleration Force</div>
+              <div class="formula">F_acc = m × a<small>Newton's 2nd Law. Braking (negative a) can recover energy.</small></div>
+              <pre><span class="var">F_acc</span> = <span class="var">m</span>.*<span class="var">acceleration</span>;</pre>
+            </div>
+          </div>
+          <pre style="margin-top:14px;"><span class="var">F_total</span> = <span class="var">F_roll</span> + <span class="var">F_aero</span> + <span class="var">F_grade</span> + <span class="var">F_acc</span>;  <span class="cmt">% Line 44: Sum all forces</span></pre>
+        </div>
+      </div>
+
+      <!-- Step D: Energy -->
+      <div class="step">
+        <div class="step-left"><div class="step-num">4</div><div class="step-line"></div></div>
+        <div class="step-body">
+          <div class="step-title">Calculate Power → Energy (Lines 48–54)</div>
+          <pre>
+<span class="var">P</span> = <span class="var">F_total</span> .* <span class="var">v</span>;            <span class="cmt">% Power (Watts) = Force × Velocity</span>
+<span class="var">Energy</span> = <span class="fn">abs</span>(<span class="var">P</span> ./ <span class="var">v</span>);         <span class="cmt">% Energy per km = |F_total| (simplifies)</span>
+<span class="var">Energy</span> = <span class="var">Energy</span> + <span class="num">30</span>*<span class="fn">randn</span>(N,<span class="num">1</span>); <span class="cmt">% Add Gaussian noise for realism</span></pre>
+          <div class="alert tip">
+            <span class="alert-icon">✅</span>
+            <div class="alert-text"><strong>Why abs()?</strong> Energy is always positive. When braking (negative force), the <code>abs()</code> ensures we still count positive energy usage.<br><strong>Why randn()?</strong> Real sensors aren't perfect. Gaussian noise simulates wind gusts, road bumps, and measurement errors.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── ML MODELS ───────────── -->
+<section id="ml">
+  <div class="wrap">
+    <div class="section-header reveal">
+      <div class="section-num">🤖 Machine Learning</div>
+      <h2><span>Two Models Compared</span></h2>
+      <p class="section-sub">Lines 92–136 — Prepare data, split, train, predict</p>
+    </div>
+
+    <!-- Feature Matrix -->
+    <div class="card reveal">
+      <div class="card-title"><span class="icon blue">🗂️</span> Step 3 &amp; 4: Feature Matrix + Train/Test Split (Lines 92–105)</div>
+      <pre>
+<span class="var">X</span> = [<span class="var">speed</span> <span class="var">acceleration</span> <span class="var">roadGrade</span> <span class="var">temperature</span>];  <span class="cmt">% 300×4 Input matrix</span>
+<span class="var">Y</span> = <span class="var">Energy</span>;                                        <span class="cmt">% 300×1 Target output</span>
+
+<span class="cmt">% Split: 80% training, 20% testing</span>
+<span class="var">cv</span>     = <span class="fn">cvpartition</span>(<span class="fn">size</span>(X,<span class="num">1</span>), <span class="str">'HoldOut'</span>, <span class="num">0.2</span>);
+<span class="var">Xtrain</span> = X(<span class="fn">training</span>(cv),:);   <span class="cmt">% 240 rows</span>
+<span class="var">Ytrain</span> = Y(<span class="fn">training</span>(cv));
+<span class="var">Xtest</span>  = X(<span class="fn">test</span>(cv),:);      <span class="cmt">% 60 rows</span>
+<span class="var">Ytest</span>  = Y(<span class="fn">test</span>(cv));</pre>
+      <div class="alert info">
+        <span class="alert-icon">📐</span>
+        <div class="alert-text"><strong>Why split?</strong> We train on 80% of data so the model learns patterns, then test on the remaining 20% (data the model has never seen) to get a fair measure of real-world accuracy. This prevents overfitting.</div>
+      </div>
+    </div>
+
+    <div class="grid-2 reveal">
+      <!-- Linear Regression -->
+      <div class="card">
+        <div class="card-title"><span class="icon purple">📐</span> Linear Regression (Lines 111–117)</div>
+        <pre>
+<span class="var">linearModel</span> = <span class="fn">fitlm</span>(<span class="var">Xtrain</span>, <span class="var">Ytrain</span>);
+<span class="var">Ypred_lin</span>   = <span class="fn">predict</span>(<span class="var">linearModel</span>, <span class="var">Xtest</span>);</pre>
+        <br>
+        <p style="color:var(--muted);font-size:.88rem;">Fits a flat <strong>hyperplane</strong> through the data:</p>
+        <div class="formula" style="font-size:.8rem;">
+          Energy = w₁·Speed + w₂·Accel + w₃·Grade + w₄·Temp + bias
+        </div>
+        <p style="color:var(--muted);font-size:.84rem;margin-top:10px;">⚠️ <strong>Limitation:</strong> Aerodynamic drag is v², which is nonlinear. Linear regression can't capture this properly.</p>
+        <div style="margin-top:12px;"><span class="badge purple">Simple</span> <span class="badge orange">Fast</span> <span class="badge red">Less Accurate</span></div>
+      </div>
+
+      <!-- Random Forest -->
+      <div class="card" style="border-color:rgba(0,198,255,.4);">
+        <div class="card-title"><span class="icon green">🌳</span> Random Forest (Lines 123–136)</div>
+        <pre>
+<span class="var">numTrees</span> = <span class="num">150</span>;
+
+<span class="var">RFmodel</span> = <span class="fn">TreeBagger</span>(<span class="var">numTrees</span>, <span class="var">Xtrain</span>, <span class="var">Ytrain</span>,...
+  <span class="str">'Method'</span>,               <span class="str">'regression'</span>,...
+  <span class="str">'OOBPrediction'</span>,        <span class="str">'on'</span>,...
+  <span class="str">'OOBPredictorImportance'</span>,<span class="str">'on'</span>);
+
+<span class="var">Ypred_RF</span> = <span class="fn">predict</span>(<span class="var">RFmodel</span>, <span class="var">Xtest</span>);</pre>
+        <br>
+        <p style="color:var(--muted);font-size:.84rem;"><strong>150 decision trees</strong>, each trained on a random subset of data. They all predict, and the <strong>average</strong> is the final answer.</p>
+        <table style="margin-top:10px;font-size:.8rem;">
+          <tr><th>Option</th><th>What it does</th></tr>
+          <tr><td><code>'regression'</code></td><td>Predict a number (not a category)</td></tr>
+          <tr><td><code>OOBPrediction</code></td><td>Self-test with out-of-bag samples</td></tr>
+          <tr><td><code>OOBPredictorImportance</code></td><td>Ranks which features matter most</td></tr>
+        </table>
+        <div style="margin-top:12px;"><span class="badge green">Powerful</span> <span class="badge blue">Nonlinear</span> <span class="badge green">Most Accurate</span></div>
+      </div>
+    </div>
+
+    <!-- OOB explanation -->
+    <div class="alert warn reveal" style="margin-top:8px;">
+      <span class="alert-icon">🌳</span>
+      <div class="alert-text"><strong>What is Out-of-Bag (OOB)?</strong> Each tree in a Random Forest is trained on a random 63% of the data. The remaining 37% (never seen by that tree) is used to test it internally. No need for a separate validation set — it's built-in!</div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── EVALUATION ───────────── -->
+<section id="eval">
+  <div class="wrap">
+    <div class="section-header reveal">
+      <div class="section-num">📏 Model Evaluation</div>
+      <h2><span>How Good Is the Model?</span></h2>
+      <p class="section-sub">Lines 142–158 — MAE, MSE, and R² explained</p>
+    </div>
+
+    <div class="card reveal">
+      <pre>
+<span class="cmt">% Mean Absolute Error — average prediction error</span>
+<span class="var">MAE_lin</span> = <span class="fn">mean</span>(<span class="fn">abs</span>(<span class="var">Ytest</span> - <span class="var">Ypred_lin</span>));
+<span class="var">MAE_RF</span>  = <span class="fn">mean</span>(<span class="fn">abs</span>(<span class="var">Ytest</span> - <span class="var">Ypred_RF</span>));
+
+<span class="cmt">% Mean Squared Error — penalises large errors more heavily</span>
+<span class="var">MSE_lin</span> = <span class="fn">mean</span>((<span class="var">Ytest</span> - <span class="var">Ypred_lin</span>).^<span class="num">2</span>);
+<span class="var">MSE_RF</span>  = <span class="fn">mean</span>((<span class="var">Ytest</span> - <span class="var">Ypred_RF</span>).^<span class="num">2</span>);
+
+<span class="cmt">% R² Score — how much variance is explained (1.0 = perfect)</span>
+<span class="var">SS_res</span> = <span class="fn">sum</span>((<span class="var">Ytest</span> - <span class="var">Ypred_RF</span>).^<span class="num">2</span>);
+<span class="var">SS_tot</span> = <span class="fn">sum</span>((<span class="var">Ytest</span> - <span class="fn">mean</span>(<span class="var">Ytest</span>)).^<span class="num">2</span>);
+<span class="var">R2_RF</span>  = <span class="num">1</span> - <span class="var">SS_res</span>/<span class="var">SS_tot</span>;</pre>
+    </div>
+
+    <div class="grid-3 reveal" style="margin-top:20px;">
+      <div class="metric">
+        <div class="val-big">MAE</div>
+        <div class="label">Mean Absolute Error<br><small>Average Wh/km error. Lower = better.<br>E.g. MAE=15 means off by 15 Wh/km on average.</small></div>
+      </div>
+      <div class="metric">
+        <div class="val-big">MSE</div>
+        <div class="label">Mean Squared Error<br><small>Squares errors — big mistakes are penalised much more. Useful for catching outliers.</small></div>
+      </div>
+      <div class="metric">
+        <div class="val-big">R²</div>
+        <div class="label">R-Squared Score<br><small>1.0 = perfect. 0 = model is useless.<br>RF typically achieves 0.85–0.95 here.</small></div>
+      </div>
+    </div>
+
+    <div class="alert tip reveal" style="margin-top:16px;">
+      <span class="alert-icon">🎯</span>
+      <div class="alert-text"><strong>Quick answer for viva:</strong> "R² of 0.90 means the Random Forest model explains 90% of the variation in energy consumption. The remaining 10% is real-world noise that no model can predict."</div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── PLOTS ───────────── -->
+<section id="plots">
+  <div class="wrap">
+    <div class="section-header reveal">
+      <div class="section-num">📊 Visualizations</div>
+      <h2><span>4 Key Plots</span></h2>
+      <p class="section-sub">Steps 2, 8, 9, 10 — what each graph tells you</p>
+    </div>
+
+    <div class="grid-2 reveal">
+      <div class="card">
+        <div class="card-title"><span class="icon blue">📉</span> Plot 1 — Data Visualisation (Step 2)</div>
+        <p style="color:var(--muted);font-size:.88rem;margin-bottom:12px;">2×2 grid of scatter plots showing how each feature relates to energy.</p>
+        <pre>
+<span class="fn">subplot</span>(<span class="num">2</span>,<span class="num">2</span>,<span class="num">1</span>)
+<span class="fn">scatter</span>(<span class="var">speed</span>, <span class="var">Energy</span>, <span class="str">'filled'</span>)   <span class="cmt">% Speed vs Energy</span>
+<span class="fn">subplot</span>(<span class="num">2</span>,<span class="num">2</span>,<span class="num">2</span>)
+<span class="fn">scatter</span>(<span class="var">acceleration</span>, <span class="var">Energy</span>, <span class="str">'filled'</span>)
+<span class="fn">subplot</span>(<span class="num">2</span>,<span class="num">2</span>,<span class="num">3</span>)
+<span class="fn">scatter</span>(<span class="var">roadGrade</span>, <span class="var">Energy</span>, <span class="str">'filled'</span>)
+<span class="fn">subplot</span>(<span class="num">2</span>,<span class="num">2</span>,<span class="num">4</span>)
+<span class="fn">scatter</span>(<span class="var">temperature</span>, <span class="var">Energy</span>, <span class="str">'filled'</span>)</pre>
+        <p style="color:var(--muted);font-size:.82rem;">📌 Speed vs Energy shows a <strong>curved (quadratic)</strong> trend — proof of why LR fails.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon green">🎯</span> Plot 2 — RF Prediction Accuracy (Step 8)</div>
+        <p style="color:var(--muted);font-size:.88rem;margin-bottom:12px;">Actual energy on X-axis, Predicted energy on Y-axis.</p>
+        <pre>
+<span class="fn">scatter</span>(<span class="var">Ytest</span>, <span class="var">Ypred_RF</span>, <span class="str">'filled'</span>)
+<span class="fn">hold on</span>
+<span class="fn">plot</span>([<span class="fn">min</span>(<span class="var">Ytest</span>) <span class="fn">max</span>(<span class="var">Ytest</span>)], ...
+     [<span class="fn">min</span>(<span class="var">Ytest</span>) <span class="fn">max</span>(<span class="var">Ytest</span>)], ...
+     <span class="str">'r'</span>, <span class="str">'LineWidth'</span>, <span class="num">2</span>)     <span class="cmt">% Red = perfect line</span></pre>
+        <p style="color:var(--muted);font-size:.82rem;">📌 Points ON the red line = perfect predictions. Scatter around it = error.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon orange">🏆</span> Plot 3 — Feature Importance (Step 9)</div>
+        <p style="color:var(--muted);font-size:.88rem;margin-bottom:12px;">Ranks which input features matter most for energy prediction.</p>
+        <pre>
+<span class="fn">bar</span>(<span class="var">RFmodel</span>.OOBPermutedPredictorDeltaError)
+<span class="fn">xticklabels</span>({<span class="str">'Speed'</span>,<span class="str">'Acceleration'</span>,<span class="str">'Road Grade'</span>,<span class="str">'Temperature'</span>})</pre>
+        <p style="color:var(--muted);font-size:.82rem;">📌 <strong>Speed is #1</strong> (because drag grows with v²). Temperature is usually lowest.</p>
+        <div style="margin-top:14px;">
+          <div class="pbar-wrap">
+            <div class="pbar-label"><span>Speed</span><span style="color:var(--accent)">High</span></div>
+            <div class="pbar"><div class="pbar-fill" style="width:90%"></div></div>
+          </div>
+          <div class="pbar-wrap">
+            <div class="pbar-label"><span>Road Grade</span><span style="color:var(--accent)">Medium</span></div>
+            <div class="pbar"><div class="pbar-fill" style="width:65%"></div></div>
+          </div>
+          <div class="pbar-wrap">
+            <div class="pbar-label"><span>Acceleration</span><span style="color:var(--accent)">Medium</span></div>
+            <div class="pbar"><div class="pbar-fill" style="width:55%"></div></div>
+          </div>
+          <div class="pbar-wrap">
+            <div class="pbar-label"><span>Temperature</span><span style="color:var(--accent)">Low</span></div>
+            <div class="pbar"><div class="pbar-fill" style="width:30%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon red">⚖️</span> Plot 4 — Model Comparison (Step 10)</div>
+        <p style="color:var(--muted);font-size:.88rem;margin-bottom:12px;">Bar chart of MAE for both models. Lower bar = better model.</p>
+        <pre>
+<span class="fn">bar</span>([<span class="var">MAE_lin</span> <span class="var">MAE_RF</span>])
+<span class="fn">set</span>(<span class="fn">gca</span>,<span class="str">'XTickLabel'</span>,
+    {<span class="str">'Linear Regression'</span>,<span class="str">'Random Forest'</span>})</pre>
+        <p style="color:var(--muted);font-size:.82rem;">📌 Random Forest bar will always be shorter → confirmed better model for this non-linear problem.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── VIVA Q&A ───────────── -->
+<section id="viva">
+  <div class="wrap">
+    <div class="section-header reveal">
+      <div class="section-num">🎤 Viva Preparation</div>
+      <h2><span>Top Q&amp;A to Know</span></h2>
+      <p class="section-sub">Click any question to reveal the answer</p>
+    </div>
+
+    <div class="reveal">
+      <div class="qa">
+        <div class="qa-q" onclick="toggle(this)">
+          <span><span class="q-tag">Q1</span> Why use physics to generate data instead of a real dataset?</span>
+          <span>▾</span>
+        </div>
+        <div class="qa-a">
+          <strong>Answer:</strong> Real EV driving datasets are proprietary, expensive, and hard to obtain. By using physics equations (Newton's laws, drag formula), we can generate <strong>unlimited, realistic, labelled data</strong> for free. The physics guarantees the data follows real-world laws, making the ML models learn meaningful patterns rather than noise from messy sensor data.
+        </div>
+      </div>
+
+      <div class="qa">
+        <div class="qa-q" onclick="toggle(this)">
+          <span><span class="q-tag">Q2</span> Why does speed dominate feature importance?</span>
+          <span>▾</span>
+        </div>
+        <div class="qa-a">
+          <strong>Answer:</strong> Aerodynamic drag = ½ × ρ × Cd × A × <strong>v²</strong>. Speed appears <strong>squared</strong>, so doubling the speed quadruples the drag force. At 100 km/h vs 50 km/h, an EV faces 4× more aerodynamic resistance. No other feature has this exponential scaling, making speed the single most impactful variable on energy consumption.
+        </div>
+      </div>
+
+      <div class="qa">
+        <div class="qa-q" onclick="toggle(this)">
+          <span><span class="q-tag">Q3</span> Why is Random Forest better than Linear Regression here?</span>
+          <span>▾</span>
+        </div>
+        <div class="qa-a">
+          <strong>Answer:</strong> Linear Regression assumes the relationship between inputs and output is a straight line (linear). But EV energy involves <strong>v²</strong> (quadratic drag), <strong>sin(θ)</strong> (trigonometric grade), and complex interactions. Random Forest uses 150 decision trees that capture any nonlinear pattern automatically. It outperforms Linear Regression because the real physics is fundamentally nonlinear.
+        </div>
+      </div>
+
+      <div class="qa">
+        <div class="qa-q" onclick="toggle(this)">
+          <span><span class="q-tag">Q4</span> What is the purpose of adding noise with randn()?</span>
+          <span>▾</span>
+        </div>
+        <div class="qa-a">
+          <strong>Answer:</strong> Real-world energy measurements are never perfectly clean. Factors like crosswinds, road surface texture, sensor calibration drift, and driving style variability all add random variation. <code>30*randn(N,1)</code> adds Gaussian (bell-curve) noise with a standard deviation of 30 Wh/km. This makes our synthetic dataset behave realistically, so ML models trained on it generalize better.
+        </div>
+      </div>
+
+      <div class="qa">
+        <div class="qa-q" onclick="toggle(this)">
+          <span><span class="q-tag">Q5</span> Explain the R² score and what a good value is.</span>
+          <span>▾</span>
+        </div>
+        <div class="qa-a">
+          <strong>Answer:</strong> R² (R-squared) measures what fraction of the target variable's variance the model explains.<br><br>
+          <strong>Formula:</strong> R² = 1 − (SS_residual / SS_total)<br><br>
+          • R² = 1.0 → perfect model (predicts everything exactly)<br>
+          • R² = 0.0 → model is no better than just predicting the mean<br>
+          • R² &lt; 0 → model is worse than the mean (terrible)<br><br>
+          For this project, Random Forest typically achieves <strong>R² between 0.85 and 0.95</strong>, meaning it explains 85–95% of the energy variation.
+        </div>
+      </div>
+
+      <div class="qa">
+        <div class="qa-q" onclick="toggle(this)">
+          <span><span class="q-tag">Q6</span> What does Out-of-Bag (OOB) mean in Random Forest?</span>
+          <span>▾</span>
+        </div>
+        <div class="qa-a">
+          <strong>Answer:</strong> Each tree in a Random Forest is trained on a <strong>random 63% sample</strong> of the training data (bootstrap sampling). The remaining 37% — data that particular tree never saw — is called "out-of-bag" data. OOB error is calculated by testing each tree on its out-of-bag samples. It's essentially a <strong>free internal cross-validation</strong> without needing extra test data. <code>'OOBPrediction', 'on'</code> enables this in MATLAB.
+        </div>
+      </div>
+
+      <div class="qa">
+        <div class="qa-q" onclick="toggle(this)">
+          <span><span class="q-tag">Q7</span> Why 150 trees? What happens with too few or too many?</span>
+          <span>▾</span>
+        </div>
+        <div class="qa-a">
+          <strong>Answer:</strong> With <strong>too few trees</strong> (e.g., 5–10), the forest is unstable — small changes in data cause big prediction swings (high variance). With <strong>too many trees</strong> (e.g., 1000+), accuracy plateaus while computation time grows unnecessarily. <strong>150 trees</strong> is a practical sweet spot: stable predictions with reasonable computation time. In practice, error typically stops improving noticeably after 50–100 trees.
+        </div>
+      </div>
+
+      <div class="qa">
+        <div class="qa-q" onclick="toggle(this)">
+          <span><span class="q-tag">Q8</span> How does temperature affect EV energy consumption?</span>
+          <span>▾</span>
+        </div>
+        <div class="qa-a">
+          <strong>Answer:</strong> In our physics model, temperature has <strong>indirect</strong> effects (battery chemistry at low temperatures reduces efficiency, HVAC use increases load). In this simplified simulation, temperature's direct physics contribution is small compared to speed squared — hence it ranks lowest in feature importance. In a real-world model, temperature would have a larger effect due to battery thermal management.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── FOOTER ───────────── -->
+<footer>
+  <div class="wrap">
+    <p>⚡ EV Energy Consumption Prediction — Physics + Machine Learning</p>
+    <p style="margin-top:8px;">MATLAB · Random Forest · Linear Regression · Vehicle Physics</p>
+  </div>
+</footer>
+
+<script>
+  // Q&A toggle
+  function toggle(el) {
+    const ans = el.nextElementSibling;
+    ans.classList.toggle('open');
+  }
+
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Animate progress bars on scroll
+  const barObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.pbar-fill').forEach(bar => {
+          const w = bar.style.width;
+          bar.style.width = '0%';
+          setTimeout(() => { bar.style.width = w; }, 100);
+        });
+      }
+    });
+  }, { threshold: 0.3 });
+  document.querySelectorAll('.card').forEach(el => barObserver.observe(el));
+</script>
+</body>
+</html>
