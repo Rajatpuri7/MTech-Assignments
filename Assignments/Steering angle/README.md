@@ -1,6 +1,6 @@
 # Steering Angle Prediction
 
-**Subject:** ADAS & Autonomous Vehicle Technology
+**Subject:** Automotive Intelligence
 **Student:** Gosavi Rajat Sanjay | M.Tech Automotive Technology, COEP
 
 ---
