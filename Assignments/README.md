@@ -9,9 +9,9 @@
 
 | Folder | Project | Tools | Subject |
 |---|---|---|---|
-| [Driver Monitoring System](./Driver%20Monitoring%20System/) | Real-time driver drowsiness & distraction detection | Python, OpenCV | ADAS |
-| [Energy Consumption](./Energy%20consumption/) | EV energy consumption prediction using ML | MATLAB, Random Forest | EV Technology |
-| [Steering Angle](./Steering%20angle/) | Autonomous steering angle prediction | MATLAB | ADAS / Control Systems |
+| [Driver Monitoring System](./Driver%20Monitoring%20System/) | Real-time driver drowsiness & distraction detection | Python, OpenCV | Automotive Intelligence |
+| [Energy Consumption](./Energy%20consumption/) | EV energy consumption prediction using ML | MATLAB, Random Forest | Automotive Intelligence |
+| [Steering Angle](./Steering%20angle/) | Autonomous steering angle prediction | MATLAB | Automotive Intelligence |
 
 ---
 
