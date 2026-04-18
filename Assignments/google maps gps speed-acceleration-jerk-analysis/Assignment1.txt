@@ -1,0 +1,32 @@
+1. Record the (using the google map, screen recording on cellphone) journey
+for at least 10 kms (or 30mins of travel) which includes the start of the
+journey and the end of the journey both.
+Tasks:
+a. Plot the speed versus time graph (using a python code with image
+processing or manually)
+b. plot the instantaneous value of the-time-you-would-take-to-travel-10km
+versus time graph
+c.
+c1. plot distance covered every two minutes as below
+time-stamp time-taken
+0min (to be plotted at 0min mark on the graph) x0min=ZERO
+0min-2min (to be plotted at 1min mark on the graph) x1min
+1min-3min (to be plotted at 2min mark on the graph) x2min
+2min-4min (to be plotted at 3min mark on the graph) x3min
+3min-5min (to be plotted at 4min mark on the graph) x4min
+4min-6min (to be plotted at 5min mark on the graph) x5min
+5min-7min (to be plotted at 6min mark on the graph) x6min
+6min-8min (to be plotted at 7min mark on the graph) x7min
+7min-9min (to be plotted at 8min mark on the graph) x8min
+8min-10min (to be plotted at 9min mark on the graph) x9min
+9min-11min (to be plotted at 10min mark on the graph) x10min
+10min-12min (to be plotted at 11min mark on the graph) x11min
+11min-13min (to be plotted at 12min mark on the graph) x12min
+and similar till the end of the journey
+c2. using the above graph, calculate the total distance covered by the
+vehicle. Calculate the percentage error.
+c3. Calculate the instantaneous speed value and compare with the
+instantaneous speed from the screen recording, and calculate the absolute
+error, mean error, RMSE (root mean square error)
+d. plot the instantaneous acceleration versus time graph
+e. plot the instantaneous jerk versus time graph
